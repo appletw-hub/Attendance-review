@@ -45,7 +45,7 @@ function getGeminiApiKey() {
 }
 
 /**
- * 取得使用的 Gemini 模型名稱 (預設 gemini-2.0-flash 或 gemini-1.5-flash)
+ * 取得使用的 Gemini 模型名稱 (預設 gemini-3.1-flash-lite)
  */
 function getGeminiModel() {
   let model = SCRIPT_PROP.getProperty('GEMINI_MODEL');
@@ -65,7 +65,7 @@ function getGeminiModel() {
     }
   } catch (e) {}
 
-  return model || 'gemini-2.0-flash';
+  return model || 'gemini-3.1-flash-lite';
 }
 
 // ==========================================
@@ -112,33 +112,33 @@ function initSpreadsheet() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     
-    // 1. 業務規則設定
+    // 1. 業務規則設定 (欄位分開：部門、職別；部門去識別化為 A部門、B部門)
     let rulesSheet = ss.getSheetByName('業務規則設定');
     if (!rulesSheet) {
       rulesSheet = ss.insertSheet('業務規則設定');
-      rulesSheet.appendRow(['設定類別', '部門 / 身分', '班別名稱', '預設上下班時間', '備註與計算規則']);
-      rulesSheet.getRange('A1:E1').setBackground('#4A3934').setFontColor('#FFFFFF').setFontWeight('bold');
+      rulesSheet.appendRow(['設定類別', '部門', '職別', '班別名稱', '預設上下班時間', '備註與計算規則']);
+      rulesSheet.getRange('A1:F1').setBackground('#4A3934').setFontColor('#FFFFFF').setFontWeight('bold');
       
       const defaultRules = [
-        ['班別設定', '妝髮部', '晨班', '04:30 - 12:30', '正職常態班'],
-        ['班別設定', '妝髮部', '早班', '06:00 - 14:00', '正職常態班'],
-        ['班別設定', '妝髮部', '中班', '12:00 - 20:00', '正職常態班'],
-        ['班別設定', '妝髮部', '晚班', '14:30 - 22:30', '正職常態班'],
-        ['班別設定', '妝髮部', '假早班', '05:00 - 14:00', '假日值班，不計入加班費'],
-        ['班別設定', '妝髮部', '假晚班', '14:00 - 23:00', '假日值班，不計入加班費'],
-        ['班別設定', '妝髮部', '假全班', '05:00 - 23:00', '假日值班，同天排假早+假晚自動合併'],
-        ['班別設定', '服裝部（正職）', '早班', '08:30 - 17:30', '平日班'],
-        ['班別設定', '服裝部（正職）', '晚班', '11:30 - 20:30', '平日班'],
-        ['班別設定', '服裝部（正職）', '假日早班', '08:30 - 17:30', '假日班'],
-        ['班別設定', '服裝部（正職）', '假日晚班', '14:00 - 23:00', '假日班'],
-        ['班別設定', '服裝部（計時 PT）', '早班', '07:00 - 14:00', '遲到扣 0.5 小時時薪'],
-        ['班別設定', '服裝部（計時 PT）', '晚班', '14:00 - 20:00', '遲到扣 0.5 小時時薪'],
-        ['班別設定', '服裝部（計時 PT）', '全班', '07:00 - 20:00', '遲到扣 0.5 小時時薪'],
-        ['班別設定', '服裝部（計時 PT）', '節目 1 班', '10:30 - 16:00', '允許調整起始時間（08:30 / 09:30）'],
-        ['班別設定', '服裝部（計時 PT）', '節目 2 班', '13:00 - 16:00', '彈性支援班']
+        ['班別設定', 'A部門', '正職', '晨班', '04:30 - 12:30', '正職常態班'],
+        ['班別設定', 'A部門', '正職', '早班', '06:00 - 14:00', '正職常態班'],
+        ['班別設定', 'A部門', '正職', '中班', '12:00 - 20:00', '正職常態班'],
+        ['班別設定', 'A部門', '正職', '晚班', '14:30 - 22:30', '正職常態班'],
+        ['班別設定', 'A部門', '正職', '假早班', '05:00 - 14:00', '假日值班，不計入加班費'],
+        ['班別設定', 'A部門', '正職', '假晚班', '14:00 - 23:00', '假日值班，不計入加班費'],
+        ['班別設定', 'A部門', '正職', '假全班', '05:00 - 23:00', '假日值班，同天排假早+假晚自動合併'],
+        ['班別設定', 'B部門', '正職', '早班', '08:30 - 17:30', '平日班'],
+        ['班別設定', 'B部門', '正職', '晚班', '11:30 - 20:30', '平日班'],
+        ['班別設定', 'B部門', '正職', '假日早班', '08:30 - 17:30', '假日班'],
+        ['班別設定', 'B部門', '正職', '假日晚班', '14:00 - 23:00', '假日班'],
+        ['班別設定', 'B部門', '計時 PT', '早班', '07:00 - 14:00', '遲到扣 0.5 小時時薪'],
+        ['班別設定', 'B部門', '計時 PT', '晚班', '14:00 - 20:00', '遲到扣 0.5 小時時薪'],
+        ['班別設定', 'B部門', '計時 PT', '全班', '07:00 - 20:00', '遲到扣 0.5 小時時薪'],
+        ['班別設定', 'B部門', '計時 PT', '節目 1 班', '10:30 - 16:00', '允許調整起始時間（08:30 / 09:30）'],
+        ['班別設定', 'B部門', '計時 PT', '節目 2 班', '13:00 - 16:00', '彈性支援班']
       ];
-      rulesSheet.getRange(2, 1, defaultRules.length, 5).setValues(defaultRules);
-      rulesSheet.autoResizeColumns(1, 5);
+      rulesSheet.getRange(2, 1, defaultRules.length, 6).setValues(defaultRules);
+      rulesSheet.autoResizeColumns(1, 6);
     }
 
     // 2. 系統設定
@@ -149,8 +149,8 @@ function initSpreadsheet() {
       settingSheet.getRange('A1:C1').setBackground('#4A3934').setFontColor('#FFFFFF').setFontWeight('bold');
       const defaultSettings = [
         ['GEMINI_API_KEY', '', 'Google AI Studio API Key (若已在 Script Properties 設定可留空)'],
-        ['GEMINI_MODEL', 'gemini-2.0-flash', '預設使用 gemini-2.0-flash 或 gemini-1.5-flash'],
-        ['BACKUP_FOLDER_ID', '', '備份檔案放置的 Google 雲端硬碟資料夾 ID (留空則放根目錄)']
+        ['GEMINI_MODEL', 'gemini-3.1-flash-lite', '預設使用 gemini-3.1-flash-lite'],
+        ['BACKUP_FOLDER_ID', '1uorJ3Ii5u97IF7S2b4m6o5FGMjfFPqLy', '備份檔案放置的 Google 雲端硬碟資料夾 ID']
       ];
       settingSheet.getRange(2, 1, defaultSettings.length, 3).setValues(defaultSettings);
       settingSheet.autoResizeColumns(1, 3);
@@ -160,7 +160,7 @@ function initSpreadsheet() {
     let empSheet = ss.getSheetByName('員工名單');
     if (!empSheet) {
       empSheet = ss.insertSheet('員工名單');
-      empSheet.appendRow(['員工姓名', '部門', '預設班別', '身分職位', '綽號簡寫 (逗號隔開)']);
+      empSheet.appendRow(['員工姓名', '部門', '預設班別', '職別', '綽號簡寫 (逗號隔開)']);
       empSheet.getRange('A1:E1').setBackground('#4A3934').setFontColor('#FFFFFF').setFontWeight('bold');
       empSheet.autoResizeColumns(1, 5);
     }
@@ -197,7 +197,7 @@ function initSpreadsheet() {
     if (!finalSheet) {
       finalSheet = ss.insertSheet('差勤結算總表');
       finalSheet.appendRow([
-        '員工姓名', '部門', '身分職位', '遲到總分鐘', '正職遲到扣款(元)', 
+        '員工姓名', '部門', '職別', '遲到總分鐘', '正職遲到扣款(元)', 
         'PT遲到次數(扣0.5h)', '忘卡次數', '應扣假天數', '加退班時數合計', '打卡出勤明細', '結算時間'
       ]);
       finalSheet.getRange('A1:K1').setBackground('#4A3934').setFontColor('#FFFFFF').setFontWeight('bold');
@@ -261,6 +261,9 @@ function scheduledDailyBackup() {
           }
         }
       }
+    }
+    if (!folderId) {
+      folderId = '1uorJ3Ii5u97IF7S2b4m6o5FGMjfFPqLy';
     }
 
     const currentFile = DriveApp.getFileById(ss.getId());
@@ -346,7 +349,7 @@ function getEmployeeMappingPromptText() {
 }
 
 /**
- * 取得班別上下班時間對照表 (格式：{ "部門_班別": "HH:mm" })
+ * 取得班別上下班時間對照表 (格式：{ "部門_職別_班別": "HH:mm", "部門_班別": "HH:mm", "班別": "HH:mm" })
  */
 function getShiftRulesMap() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -357,15 +360,24 @@ function getShiftRulesMap() {
   const rulesMap = {};
 
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === '班別設定' && data[i][1] && data[i][2] && data[i][3]) {
+    // 欄位：[0:設定類別, 1:部門, 2:職別, 3:班別名稱, 4:預設上下班時間, 5:備註與計算規則]
+    if (data[i][0] === '班別設定' && data[i][1] && data[i][3] && data[i][4]) {
       const dept = data[i][1].toString().trim();
-      const shiftName = data[i][2].toString().trim();
-      const timeStr = data[i][3].toString().trim();
+      const position = data[i][2] ? data[i][2].toString().trim() : '';
+      const shiftName = data[i][3].toString().trim();
+      const timeStr = data[i][4].toString().trim();
 
       // 提取上班起始時間 (例如 "06:00 - 14:00" -> "06:00")
       const match = timeStr.match(/\d{2}:\d{2}/);
       if (match) {
-        rulesMap[`${dept}_${shiftName}`] = match[0];
+        const startTime = match[0];
+        if (dept && position) {
+          rulesMap[`${dept}_${position}_${shiftName}`] = startTime;
+        }
+        if (dept) {
+          rulesMap[`${dept}_${shiftName}`] = startTime;
+        }
+        rulesMap[shiftName] = startTime;
       }
     }
   }
@@ -957,8 +969,16 @@ function calculateAttendance(dailyRecords, scheduleMap, substituteMap, overtimeM
     }
 
     let shiftStart = null;
-    if (empDept && empShift) {
-      shiftStart = rulesMap[`${empDept}_${empShift}`];
+    if (empShift) {
+      if (empDept && empInfo.position) {
+        shiftStart = rulesMap[`${empDept}_${empInfo.position}_${empShift}`];
+      }
+      if (!shiftStart && empDept) {
+        shiftStart = rulesMap[`${empDept}_${empShift}`];
+      }
+      if (!shiftStart) {
+        shiftStart = rulesMap[empShift];
+      }
     }
 
     // 2. 代班紀錄優先覆蓋上班時間
