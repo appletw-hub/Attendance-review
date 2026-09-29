@@ -1,6 +1,6 @@
 # 差勤自動化審核系統 (Attendance Review System)
 
-專為電視台/影視棚/多部門排班設計的自動化差勤稽核與薪資結算系統。整合 **Gemini AI 多模態 OCR 辨識**、**手寫排班表自動縫合與班別合併**、**代班與加退班時間覆蓋**，以及**打卡鐘 CSV 多維度交叉比對**。
+專為多部門排班設計的自動化差勤稽核與薪資結算系統。整合 **Gemini AI 多模態 OCR 辨識**、**手寫排班表自動縫合與班別合併**、**代班與加退班時間覆蓋**，以及**打卡鐘 CSV 多維度交叉比對**。
 
 ---
 
@@ -8,7 +8,7 @@
 
 1. **手寫排班表 AI 辨識（OCR）**
    - 支援一次上傳單張或多張照片，前端 HTML5 Canvas 自動垂直無縫拼接。
-   - 動態注入【員工簡寫對照表】Prompt，精準辨識「嘉、亦、葡、雅、Co」等綽號並自動替換為正式全名。不在名單內的新人保留原樣。
+   - 動態注入【員工簡寫對照表】Prompt，精準辨識「綽號」並自動替換為正式全名。不在名單內的新人保留原樣。
    - **班別自動合併**：同人同天排「假早班＋假晚班」自動合併為「假全班」；「早班＋晚班」自動合併為「全班」。
    - 一鍵自動寫入 Google Sheets「排班資料庫」。
 
@@ -33,21 +33,20 @@
 
 ## 📁 檔案結構說明
 
-- [Code.gs](file:///h:/我的雲端硬碟/2026%20Antigravity/01%20Lebs/Attendance-review/Code.gs)：Google Apps Script 後端邏輯核心、Gemini API 請求、CSV 區塊解析器與多維度稽核結算演算法。
-- [Index.html](file:///h:/我的雲端硬碟/2026%20Antigravity/01%20Lebs/Attendance-review/Index.html)：現代化 Web App 響應式儀表板前端（Inter / Noto Sans TC、卡片式設計、多圖拼接、即時篩選、一鍵匯出 CSV）。
-- [00 APP-差勤.md](file:///h:/我的雲端硬碟/2026%20Antigravity/01%20Lebs/Attendance-review/00%20APP-差勤.md)：原始業務規格需求文件。
+- [Code.gs]：Google Apps Script 後端邏輯核心、Gemini API 請求、CSV 區塊解析器與多維度稽核結算演算法。
+- [Index.html]：現代化 Web App 響應式儀表板前端（Inter / Noto Sans TC、卡片式設計、多圖拼接、即時篩選、一鍵匯出 CSV）。
 
 ---
 
 ## 🚀 部署與設定指引 (5 步驟完成)
 
 ### 步驟 1：建立 Google 試算表
-1. 至 Google 雲端硬碟新增一個空的 Google 試算表（例如命名為：`電視台差勤自動化資料庫`）。
+1. 至 Google 雲端硬碟新增一個空的 Google 試算表（例如命名為：`差勤自動化審核系統資料庫`）。
 2. 點擊頂部選單「**擴充功能**」➔「**Apps Script**」。
 
 ### 步驟 2：貼入程式碼
-1. 將專案左側的 `程式碼.gs` 內容清空，將 [`Code.gs`](file:///h:/我的雲端硬碟/2026%20Antigravity/01%20Lebs/Attendance-review/Code.gs) 內容完整貼入。
-2. 點擊左側「+」➔「**HTML**」，檔名輸入 `Index`（不需要副檔名），將 [`Index.html`](file:///h:/我的雲端硬碟/2026%20Antigravity/01%20Lebs/Attendance-review/Index.html) 內容完整貼入並存檔（Ctrl+S）。
+1. 將專案左側的 `程式碼.gs` 內容清空，將 [`Code.gs`] 內容完整貼入。
+2. 點擊左側「+」➔「**HTML**」，檔名輸入 `Index`（不需要副檔名），將 [`Index.html`] 內容完整貼入並存檔（Ctrl+S）。
 
 ### 步驟 3：設定 Gemini API Key
 可使用以下兩種方式之一設定：
@@ -60,13 +59,13 @@
 1. 在 Apps Script 編輯器上方函數選取 `initSpreadsheet`，點擊「**執行**」。
 2. 首次執行需授權 Google 帳號權限。
 3. 執行完成後，Google 試算表將自動建立好所有標準工作表：
-   - `業務規則設定`（已預填妝髮部、服裝部正職/PT 班別時間）
-   - `系統設定`
-   - `員工名單`（已建立姓名、職位與綽號簡寫範例）
+   - `員工名單`（建立姓名、職位與綽號簡寫）
    - `排班資料庫`
    - `代班紀錄`
    - `加退班紀錄`
    - `差勤結算總表`
+   - `業務規則設定`（填部門、身份、班別時間）
+   - `系統設定`
    - `Log_系統日誌`
 
 ### 步驟 5：部署為 Web 應用程式

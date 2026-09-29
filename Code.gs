@@ -156,22 +156,12 @@ function initSpreadsheet() {
       settingSheet.autoResizeColumns(1, 3);
     }
 
-    // 3. 員工名單 (含綽號簡寫)
+    // 3. 員工名單 (含綽號簡寫) - 去識別化：不預載任何員工資料，由管理員於試算表自行建立
     let empSheet = ss.getSheetByName('員工名單');
     if (!empSheet) {
       empSheet = ss.insertSheet('員工名單');
       empSheet.appendRow(['員工姓名', '部門', '預設班別', '身分職位', '綽號簡寫 (逗號隔開)']);
       empSheet.getRange('A1:E1').setBackground('#4A3934').setFontColor('#FFFFFF').setFontWeight('bold');
-      
-      const defaultEmps = [
-        ['王嘉恩', '妝髮部', '早班', '正職', '嘉恩, 嘉'],
-        ['李亦媜', '妝髮部', '中班', '正職', '亦媜, 亦'],
-        ['陳雅惠', '妝髮部', '早班', '正職', '雅惠, 雅'],
-        ['林葡芳', '妝髮部', '晚班', '正職', '葡萄, 葡'],
-        ['張康妮', '服裝部（正職）', '早班', '正職', 'Connie, Co'],
-        ['陳小美', '服裝部（計時 PT）', '早班', '計時 PT', '小美, PT美']
-      ];
-      empSheet.getRange(2, 1, defaultEmps.length, 5).setValues(defaultEmps);
       empSheet.autoResizeColumns(1, 5);
     }
 

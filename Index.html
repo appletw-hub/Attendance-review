@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
@@ -749,9 +749,9 @@
                       onSuccess(JSON.stringify({
                         status: 'success',
                         data: [
-                          { date: 1, name: '王嘉恩', shift: '早班' },
-                          { date: 2, name: '林葡芳', shift: '假全班' },
-                          { date: 3, name: '張康妮', shift: '晚班' }
+                          { date: 1, name: '示範員工A', shift: '早班' },
+                          { date: 2, name: '示範員工B', shift: '假全班' },
+                          { date: 3, name: '示範員工C', shift: '晚班' }
                         ]
                       }));
                     }, 600);
@@ -761,7 +761,7 @@
                     setTimeout(() => {
                       onSuccess(JSON.stringify({
                         status: 'success',
-                        data: [{ date: '2026/10/05', applicant: '王嘉恩', substitute: '李亦媜', adjusted_time: '06:00 - 14:00' }]
+                        data: [{ date: '2026/10/05', applicant: '示範員工A', substitute: '示範員工B', adjusted_time: '06:00 - 14:00' }]
                       }));
                     }, 600);
                     return runner;
@@ -770,7 +770,7 @@
                     setTimeout(() => {
                       onSuccess(JSON.stringify({
                         status: 'success',
-                        data: [{ date: '2026/10/08', applicant: '張康妮', late_time: '08:30', expected_in: '08:30', overtime_hours: 2, reason: '錄影延長' }]
+                        data: [{ date: '2026/10/08', applicant: '示範員工C', late_time: '08:30', expected_in: '08:30', overtime_hours: 2, reason: '業務支援' }]
                       }));
                     }, 600);
                     return runner;
@@ -820,8 +820,8 @@
       function getMockSummary() {
         return [
           {
-            name: "王嘉恩",
-            dept: "妝髮部",
+            name: "示範員工A",
+            dept: "部門A",
             position: "正職",
             lateMins: 14,
             latePenalty: 140,
@@ -832,8 +832,8 @@
             punchLogsStr: "[1日] (早班) 06:14 ~ 14:02； [2日] (晨班) 04:28 ~ 12:35； [3日] (早班) 05:58 (忘卡/缺卡)"
           },
           {
-            name: "林葡芳 (葡萄)",
-            dept: "妝髮部",
+            name: "示範員工B (小B)",
+            dept: "部門A",
             position: "正職",
             lateMins: 0,
             latePenalty: 0,
@@ -844,8 +844,8 @@
             punchLogsStr: "[4日] (假全班) 04:55 ~ 23:05； [5日] (晚班) 14:20 ~ 22:35； [10日] 14:25 (忘卡/缺卡)； [15日] 14:22 (忘卡/缺卡)； [20日] 14:28 (忘卡/缺卡)"
           },
           {
-            name: "陳小美",
-            dept: "服裝部（計時 PT）",
+            name: "計時人員C",
+            dept: "部門B（計時 PT）",
             position: "計時 PT",
             lateMins: 18,
             latePenalty: 0,
@@ -856,8 +856,8 @@
             punchLogsStr: "[1日] (早班) 07:08 ~ 14:05； [8日] (早班) 07:10 ~ 14:02； [15日] (早班) 06:55 ~ 14:00"
           },
           {
-            name: "張康妮 (Connie)",
-            dept: "服裝部（正職）",
+            name: "示範員工D (小D)",
+            dept: "部門B（正職）",
             position: "正職",
             lateMins: 0,
             latePenalty: 0,
