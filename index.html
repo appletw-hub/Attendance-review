@@ -651,13 +651,10 @@
           <button class="btn btn-outline" onclick="openRulesModal()" title="查看與編輯業務班別時間規則">
             📋 業務規則
           </button>
-          <button class="btn btn-outline" onclick="runNormalizeExistingSchedules()" title="整理歷史班別（去除妝髮代班、同日早晚班合併為假日全班）">
-            ✨ 整理歷史班別
-          </button>
-          <button class="btn btn-outline" onclick="runBackupData()" title="即時將本機資料庫匯出為 JSON 備份檔">
+          <button class="btn btn-outline" onclick="openBackupModal()" title="匯出資料庫備份檔 (JSON 或 CSV)">
             💾 備份資料
           </button>
-          <button class="btn btn-outline" onclick="openImportModal()" title="從備份 JSON 檔案還原資料庫">
+          <button class="btn btn-outline" onclick="openImportModal()" title="匯入備份檔 (JSON 或 CSV)">
             📥 匯入備份
           </button>
           <button class="btn btn-danger" onclick="runClearData()" title="清除排班、代班、加退班與差勤總表之動態資料">
@@ -831,10 +828,9 @@
           <div class="form-group">
             <label for="geminiModelSelect">Gemini Vision 模型：</label>
             <select id="geminiModelSelect">
-              <option value="gemini-2.5-flash">gemini-2.5-flash (推薦，速度最快、辨識精確)</option>
-              <option value="gemini-1.5-flash">gemini-1.5-flash (高性價比、穩定)</option>
-              <option value="gemini-2.0-flash">gemini-2.0-flash (最新版 Flash)</option>
-              <option value="gemini-1.5-pro">gemini-1.5-pro (推理能力極高)</option>
+              <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (推薦，極致輕量敏捷)</option>
+              <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (性價比兼具、辨識精確)</option>
+              <option value="gemini-3.6-flash">gemini-3.6-flash (高階視覺推理)</option>
             </select>
           </div>
 
@@ -912,24 +908,124 @@
         </div>
       </div>
 
-      <!-- 4. 匯入備份彈窗 Modal -->
-      <div id="importModal" class="modal">
-        <div class="modal-content" style="max-width: 520px;">
+      <!-- 3.5. 備份資料彈窗 Modal (支援 JSON 全備份 與 CSV 各表匯出) -->
+      <div id="backupModal" class="modal">
+        <div class="modal-content" style="max-width: 580px;">
           <div class="modal-header">
-            <h3>📥 匯入資料庫備份檔 (JSON)</h3>
+            <h3>💾 備份資料庫</h3>
+            <button class="modal-close" onclick="closeBackupModal()">&times;</button>
+          </div>
+          <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
+            請選擇您要備份的格式：可下載包含全部資料的單一 JSON 備份檔，或單獨匯出指定資料表為 CSV 檔案（支援 Excel UTF-8 BOM）。
+          </div>
+
+          <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; background: #FAF5FF;">
+            <div style="font-weight: 600; color: #6B21A8; font-size: 14px; margin-bottom: 6px;">📦 完整資料庫備份 (推薦)</div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+              包含排班庫、員工名單、代班紀錄、加退班單與業務規則。可日後一鍵完整還原。
+            </div>
+            <button class="btn btn-primary" onclick="exportFullBackupJSON()" style="background:#7C3AED; border-color:#6D28D9;">
+              📥 下載完整備份 (JSON)
+            </button>
+          </div>
+
+          <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; background: #F8FAFC;">
+            <div style="font-weight: 600; color: var(--text-primary); font-size: 14px; margin-bottom: 6px;">📊 匯出資料表為 CSV</div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+              適用於使用 Excel 檢視或手動整理各項名冊資料。
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button class="btn btn-outline" onclick="exportTableCSV('schedules')" style="justify-content: flex-start;">
+                📄 匯出排班資料庫 (CSV)
+              </button>
+              <button class="btn btn-outline" onclick="exportTableCSV('employees')" style="justify-content: flex-start;">
+                👥 匯出員工名單 (CSV)
+              </button>
+              <button class="btn btn-outline" onclick="exportTableCSV('substitutes')" style="justify-content: flex-start;">
+                🔄 匯出代班紀錄 (CSV)
+              </button>
+              <button class="btn btn-outline" onclick="exportTableCSV('overtimes')" style="justify-content: flex-start;">
+                ⏱️ 匯出加退班紀錄 (CSV)
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; margin-top: 18px;">
+            <button class="btn btn-outline" onclick="closeBackupModal()">關閉</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 匯入備份彈窗 Modal (支援 JSON 還原 與 CSV 匯入) -->
+      <div id="importModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+          <div class="modal-header">
+            <h3>📥 匯入備份與資料</h3>
             <button class="modal-close" onclick="closeImportModal()">&times;</button>
           </div>
-          <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
-            請選取先前以「💾 備份資料」匯出的 JSON 備份檔。還原將覆蓋目前的排班資料庫、代班紀錄、加退班紀錄、員工名單與規則設定。
+
+          <!-- 分頁切換 Tab -->
+          <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+            <button id="importTabJsonBtn" class="btn btn-primary" onclick="switchImportTab('json')" style="font-size: 13px; padding: 6px 14px;">
+              📦 匯入 JSON 完整備份
+            </button>
+            <button id="importTabCsvBtn" class="btn btn-outline" onclick="switchImportTab('csv')" style="font-size: 13px; padding: 6px 14px;">
+              📊 匯入 CSV 資料表
+            </button>
           </div>
-          <div class="upload-dropzone" style="margin-bottom: 16px;">
-            <input type="file" id="backupJsonInput" accept=".json" onchange="handleBackupFileSelect(event)" />
-            <div class="dropzone-icon">📁</div>
-            <div class="dropzone-text" id="backupFileName">點擊選取或拖曳 JSON 備份檔案</div>
+
+          <!-- 頁籤一：JSON 完整還原 -->
+          <div id="importJsonPanel">
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
+              選取先前備份的 <code>.json</code> 檔案。還原將更新排班庫、代班、加退班、員工名單與規則設定。
+            </div>
+            <div class="upload-dropzone" style="margin-bottom: 16px;">
+              <input type="file" id="backupJsonInput" accept=".json" onchange="handleBackupFileSelect(event)" />
+              <div class="dropzone-icon">📁</div>
+              <div class="dropzone-text" id="backupFileName">點擊選取或拖曳 JSON 備份檔案</div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+              <button class="btn btn-outline" onclick="closeImportModal()">取消</button>
+              <button class="btn btn-primary" id="confirmImportBtn" onclick="executeImportBackup()" disabled>確定還原</button>
+            </div>
           </div>
-          <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button class="btn btn-outline" onclick="closeImportModal()">取消</button>
-            <button class="btn btn-primary" id="confirmImportBtn" onclick="executeImportBackup()" disabled>確定還原</button>
+
+          <!-- 頁籤二：CSV 匯入 -->
+          <div id="importCsvPanel" style="display: none;">
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
+              支援將排班、員工名單、代班或加退班 CSV 檔案匯入系統。系統將自動辨識首行欄位。
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+              <div>
+                <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">匯入目的資料表：</label>
+                <select id="csvTargetTable" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px;">
+                  <option value="schedules">排班資料庫 (日期, 部門, 姓名, 班別)</option>
+                  <option value="employees">員工名單 (部門, 職別, 正式姓名, 綽號簡寫)</option>
+                  <option value="substitutes">代班紀錄 (日期, 部門, 原排班, 代班人員, 時間)</option>
+                  <option value="overtimes">加退班紀錄 (日期, 申請人, 遲到/早退, 時數, 原因)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">匯入模式：</label>
+                <select id="csvImportMode" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px;">
+                  <option value="append">追加至現有資料 (Append)</option>
+                  <option value="overwrite">清空原表後覆蓋 (Overwrite)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="upload-dropzone" style="margin-bottom: 16px;">
+              <input type="file" id="backupCsvInput" accept=".csv" onchange="handleCsvFileSelect(event)" />
+              <div class="dropzone-icon">📄</div>
+              <div class="dropzone-text" id="backupCsvFileName">點擊選取或拖曳 CSV 檔案</div>
+              <div class="dropzone-hint">支援 UTF-8 / Big5 編碼</div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+              <button class="btn btn-outline" onclick="closeImportModal()">取消</button>
+              <button class="btn btn-success" id="confirmCsvImportBtn" onclick="executeImportCsv()" disabled>開始匯入 CSV</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1004,7 +1100,7 @@
       const LocalDB = {
         getApiKey: () => localStorage.getItem(STORAGE_KEYS.API_KEY) || '',
         setApiKey: (key) => localStorage.setItem(STORAGE_KEYS.API_KEY, key.trim()),
-        getModel: () => localStorage.getItem(STORAGE_KEYS.MODEL) || 'gemini-2.5-flash',
+        getModel: () => localStorage.getItem(STORAGE_KEYS.MODEL) || 'gemini-3.1-flash-lite',
         setModel: (m) => localStorage.setItem(STORAGE_KEYS.MODEL, m.trim()),
 
         getRules: () => {
@@ -1920,34 +2016,8 @@
       }
 
       // ==========================================
-      // 7. 整理歷史班別與清理資料庫
+      // 7. 清理資料庫與備份
       // ==========================================
-      async function runNormalizeExistingSchedules() {
-        const confirmed = await showCustomConfirm("確定要將「排班資料庫」中的歷史班別進行標準化整理嗎？\n\n- 去除妝、髮、代班等雜訊（圖一➔圖二）\n- 同日同時有「假日早班、假日晚班」將自動改為【假日全班】\n- 同日同時有「早班、晚班」將自動改為【全班】");
-        if (!confirmed) return;
-
-        showStatus("⏳ 正在整理排班資料庫中的歷史班別格式...", "info");
-        const schedules = LocalDB.getSchedules();
-        if (schedules.length === 0) {
-          showStatus("ℹ️ 目前排班資料庫中無資料需整理。", "info");
-          return;
-        }
-
-        let updatedCount = 0;
-        const normalized = schedules.map(item => {
-          const raw = item.shift || '';
-          const cleaned = mergeShiftList([raw]);
-          if (cleaned !== raw) {
-            updatedCount++;
-            return { ...item, shift: cleaned };
-          }
-          return item;
-        });
-
-        LocalDB.saveSchedules(normalized);
-        showStatus('✅ 成功整理 ' + updatedCount + ' 筆排班紀錄！已去除妝/髮/代班標記，並將 (假日早班、假日晚班) 自動更新為【假日全班】。', "success");
-      }
-
       async function runClearData() {
         const confirmed = await showCustomConfirm("⚠️ 警告：確定要執行【清除資料】嗎？\n\n將只刪除以下資料：\n- 排班資料庫\n- 代班紀錄\n- 加退班紀錄\n- 差勤結算總表\n\n（※ 業務規則設定 與 員工名單 將被完整保留不變）");
         if (!confirmed) return;
@@ -1960,8 +2030,16 @@
         showStatus("✅ 已成功清除排班、代班、加退班與差勤結算總表之資料！員工名單與業務規則設定均完整保留。", "success");
       }
 
-      // 備份資料庫為 JSON 檔案
-      function runBackupData() {
+      // 備份資料庫 Modal
+      function openBackupModal() {
+        document.getElementById('backupModal').style.display = 'flex';
+      }
+      function closeBackupModal() {
+        document.getElementById('backupModal').style.display = 'none';
+      }
+
+      // 匯出完整 JSON 備份
+      function exportFullBackupJSON() {
         const data = LocalDB.exportAllData();
         const jsonStr = JSON.stringify(data, null, 2);
         const ymd = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
@@ -1977,7 +2055,65 @@
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
+        closeBackupModal();
         showStatus('✅ 備份成功！已下載資料庫備份檔案「' + filename + '」。', "success");
+      }
+
+      // 匯出單一資料表為 CSV (加入 \uFEFF UTF-8 BOM，防止 Excel 亂碼)
+      function exportTableCSV(tableType) {
+        let headers = [];
+        let rows = [];
+        let defaultName = '';
+        const ymd = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 8);
+
+        if (tableType === 'schedules') {
+          headers = ['日期', '部門', '員工姓名', '班別'];
+          defaultName = '排班資料庫_' + ymd + '.csv';
+          const list = LocalDB.getSchedules();
+          rows = list.map(item => [item.date || '', item.dept || '', item.name || '', item.shift || '']);
+        } else if (tableType === 'employees') {
+          headers = ['部門', '職別', '正式姓名', '綽號簡寫'];
+          defaultName = '員工名單_' + ymd + '.csv';
+          const list = LocalDB.getEmployees();
+          rows = list.map(item => [item.dept || '', item.position || '', item.fullName || '', item.nicknames || '']);
+        } else if (tableType === 'substitutes') {
+          headers = ['日期', '部門', '原排班人員', '代班人員', '調整後時間'];
+          defaultName = '代班紀錄_' + ymd + '.csv';
+          const list = LocalDB.getSubstitutes();
+          rows = list.map(item => [item.date || '', item.dept || '', item.original || '', item.substitute || '', item.adjusted_time || '']);
+        } else if (tableType === 'overtimes') {
+          headers = ['日期', '申請員工', '遲到時間', '應到時間', '早退時間', '應退時間', '加退班時數', '原因'];
+          defaultName = '加退班紀錄_' + ymd + '.csv';
+          const list = LocalDB.getOvertimes();
+          rows = list.map(item => [item.date || '', item.applicant || '', item.late_time || '', item.expected_in || '', item.leave_early_time || '', item.expected_out || '', item.overtime_hours ?? '', item.reason || '']);
+        }
+
+        if (rows.length === 0) {
+          showCustomAlert('ℹ️ 該資料表目前無任何資料可匯出！');
+          return;
+        }
+
+        const escapeCSV = (val) => {
+          let s = (val === null || val === undefined) ? '' : String(val);
+          if (s.includes('"') || s.includes(',') || s.includes('\n') || s.includes('\r')) {
+            s = '"' + s.replace(/"/g, '""') + '"';
+          }
+          return s;
+        };
+
+        const csvContent = '\uFEFF' + [headers.map(escapeCSV).join(',')].concat(rows.map(r => r.map(escapeCSV).join(','))).join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = defaultName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        closeBackupModal();
+        showStatus('✅ 已成功匯出「' + defaultName + '」（共 ' + rows.length + ' 筆）。', 'success');
       }
 
       // ==========================================
@@ -2176,15 +2312,42 @@
         showStatus('✅ 已成功儲存 ' + list.length + ' 條業務規則設定！', 'success');
       }
 
-      // 匯入備份 Modal
+      // 匯入備份 Modal (支援 JSON 與 CSV)
+      let pendingCsvRows = null;
+
       function openImportModal() {
         pendingBackupData = null;
+        pendingCsvRows = null;
         document.getElementById('backupFileName').innerText = '點擊選取或拖曳 JSON 備份檔案';
         document.getElementById('confirmImportBtn').disabled = true;
+        document.getElementById('backupCsvFileName').innerText = '點擊選取或拖曳 CSV 檔案';
+        document.getElementById('confirmCsvImportBtn').disabled = true;
+        document.getElementById('backupJsonInput').value = '';
+        document.getElementById('backupCsvInput').value = '';
+        switchImportTab('json');
         document.getElementById('importModal').style.display = 'flex';
       }
       function closeImportModal() {
         document.getElementById('importModal').style.display = 'none';
+      }
+
+      function switchImportTab(tab) {
+        const jsonPanel = document.getElementById('importJsonPanel');
+        const csvPanel = document.getElementById('importCsvPanel');
+        const tabJsonBtn = document.getElementById('importTabJsonBtn');
+        const tabCsvBtn = document.getElementById('importTabCsvBtn');
+
+        if (tab === 'json') {
+          jsonPanel.style.display = 'block';
+          csvPanel.style.display = 'none';
+          tabJsonBtn.className = 'btn btn-primary';
+          tabCsvBtn.className = 'btn btn-outline';
+        } else {
+          jsonPanel.style.display = 'none';
+          csvPanel.style.display = 'block';
+          tabJsonBtn.className = 'btn btn-outline';
+          tabCsvBtn.className = 'btn btn-primary';
+        }
       }
 
       function handleBackupFileSelect(event) {
@@ -2220,6 +2383,183 @@
           }
         } catch (e) {
           showStatus('❌ 還原失敗：' + e.message, 'error');
+        }
+      }
+
+      function handleCsvFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            let text = e.target.result;
+            // 去除 UTF-8 BOM
+            if (text.charCodeAt(0) === 0xFEFF) {
+              text = text.substring(1);
+            }
+            const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+            if (lines.length < 2) {
+              showCustomAlert('❌ CSV 檔案內容不足或無資料列！');
+              return;
+            }
+
+            const parseCSVRow = (str) => {
+              const res = [];
+              let cur = '';
+              let inQuotes = false;
+              for (let i = 0; i < str.length; i++) {
+                const c = str[i];
+                if (c === '"') {
+                  if (inQuotes && str[i + 1] === '"') {
+                    cur += '"';
+                    i++;
+                  } else {
+                    inQuotes = !inQuotes;
+                  }
+                } else if (c === ',' && !inQuotes) {
+                  res.push(cur.trim());
+                  cur = '';
+                } else {
+                  cur += c;
+                }
+              }
+              res.push(cur.trim());
+              return res;
+            };
+
+            const headerRow = parseCSVRow(lines[0]);
+            const dataRows = [];
+            for (let i = 1; i < lines.length; i++) {
+              dataRows.push(parseCSVRow(lines[i]));
+            }
+
+            pendingCsvRows = { headers: headerRow, rows: dataRows };
+            document.getElementById('backupCsvFileName').innerText = '📄 ' + file.name + ' (共 ' + dataRows.length + ' 筆資料)';
+            document.getElementById('confirmCsvImportBtn').disabled = false;
+          } catch (err) {
+            showCustomAlert('❌ 解析 CSV 檔案失敗：' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      async function executeImportCsv() {
+        if (!pendingCsvRows || !pendingCsvRows.rows || pendingCsvRows.rows.length === 0) return;
+
+        const targetTable = document.getElementById('csvTargetTable').value;
+        const mode = document.getElementById('csvImportMode').value; // 'append' or 'overwrite'
+        const { headers, rows } = pendingCsvRows;
+
+        try {
+          // 輔助函式：尋找欄位索引
+          const findCol = (keywords, fallbackIdx) => {
+            for (let i = 0; i < headers.length; i++) {
+              const h = headers[i].toLowerCase();
+              for (const kw of keywords) {
+                if (h.includes(kw.toLowerCase())) return i;
+              }
+            }
+            return fallbackIdx;
+          };
+
+          let importedCount = 0;
+
+          if (targetTable === 'schedules') {
+            const dateCol = findCol(['日期', 'date'], 0);
+            const deptCol = findCol(['部門', 'dept'], 1);
+            const nameCol = findCol(['姓名', 'name', '員工'], 2);
+            const shiftCol = findCol(['班別', 'shift'], 3);
+
+            const parsed = rows.map(r => ({
+              date: r[dateCol] || '',
+              dept: r[deptCol] || '',
+              name: r[nameCol] || '',
+              shift: cleanSingleShift(r[shiftCol] || '')
+            })).filter(x => x.name && x.shift);
+
+            let list = (mode === 'append') ? LocalDB.getSchedules() : [];
+            list = list.concat(parsed);
+            LocalDB.saveSchedules(list);
+            importedCount = parsed.length;
+          } else if (targetTable === 'employees') {
+            const deptCol = findCol(['部門', 'dept'], 0);
+            const posCol = findCol(['職別', '職稱', '身分', 'position'], 1);
+            const nameCol = findCol(['正式姓名', '姓名', 'name'], 2);
+            const nickCol = findCol(['綽號', '簡寫', '別名', 'alias', 'nickname'], 3);
+
+            const parsed = rows.map(r => ({
+              dept: r[deptCol] || '',
+              position: r[posCol] || '正職',
+              fullName: r[nameCol] || '',
+              nicknames: r[nickCol] || ''
+            })).filter(x => x.fullName);
+
+            let list = (mode === 'append') ? LocalDB.getEmployees() : [];
+            // 若為 append，避免同名員工重複
+            if (mode === 'append') {
+              const existingNames = new Set(list.map(e => e.fullName.trim()));
+              parsed.forEach(p => {
+                if (!existingNames.has(p.fullName.trim())) {
+                  list.push(p);
+                  existingNames.add(p.fullName.trim());
+                }
+              });
+            } else {
+              list = parsed;
+            }
+            LocalDB.saveEmployees(list);
+            importedCount = parsed.length;
+          } else if (targetTable === 'substitutes') {
+            const dateCol = findCol(['日期', 'date'], 0);
+            const deptCol = findCol(['部門', 'dept'], 1);
+            const origCol = findCol(['原排班', '原班', 'original'], 2);
+            const subCol = findCol(['代班人員', '代班', 'substitute'], 3);
+            const timeCol = findCol(['時間', '調整', 'time'], 4);
+
+            const parsed = rows.map(r => ({
+              date: r[dateCol] || '',
+              dept: r[deptCol] || '',
+              original: r[origCol] || '',
+              substitute: r[subCol] || '',
+              adjusted_time: r[timeCol] || ''
+            })).filter(x => x.original && x.substitute);
+
+            let list = (mode === 'append') ? LocalDB.getSubstitutes() : [];
+            list = list.concat(parsed);
+            LocalDB.saveSubstitutes(list);
+            importedCount = parsed.length;
+          } else if (targetTable === 'overtimes') {
+            const dateCol = findCol(['日期', 'date'], 0);
+            const appCol = findCol(['申請', '員工', 'applicant', '姓名'], 1);
+            const lateCol = findCol(['遲到', 'late'], 2);
+            const expInCol = findCol(['應到', 'in'], 3);
+            const earlyCol = findCol(['早退', 'early'], 4);
+            const expOutCol = findCol(['應退', 'out'], 5);
+            const otHoursCol = findCol(['時數', 'hours', '加退班'], 6);
+            const reasonCol = findCol(['原因', '事由', 'reason'], 7);
+
+            const parsed = rows.map(r => ({
+              date: r[dateCol] || '',
+              applicant: r[appCol] || '',
+              late_time: r[lateCol] || '',
+              expected_in: r[expInCol] || '',
+              leave_early_time: r[earlyCol] || '',
+              expected_out: r[expOutCol] || '',
+              overtime_hours: parseFloat(r[otHoursCol]) || 0,
+              reason: r[reasonCol] || ''
+            })).filter(x => x.applicant);
+
+            let list = (mode === 'append') ? LocalDB.getOvertimes() : [];
+            list = list.concat(parsed);
+            LocalDB.saveOvertimes(list);
+            importedCount = parsed.length;
+          }
+
+          closeImportModal();
+          showStatus('✅ 成功匯入 ' + importedCount + ' 筆資料至指定資料表！模式：' + (mode === 'append' ? '追加 (Append)' : '覆蓋 (Overwrite)'), 'success');
+        } catch (err) {
+          showStatus('❌ 匯入 CSV 失敗：' + err.message, 'error');
         }
       }
 
