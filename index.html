@@ -941,6 +941,9 @@
               <button class="btn btn-outline" onclick="exportTableCSV('employees')" style="justify-content: flex-start;">
                 👥 匯出員工名單 (CSV)
               </button>
+              <button class="btn btn-outline" onclick="exportTableCSV('rules')" style="justify-content: flex-start;">
+                📋 匯出業務規則 (CSV)
+              </button>
               <button class="btn btn-outline" onclick="exportTableCSV('substitutes')" style="justify-content: flex-start;">
                 🔄 匯出代班紀錄 (CSV)
               </button>
@@ -993,7 +996,7 @@
           <!-- 頁籤二：CSV 匯入 -->
           <div id="importCsvPanel" style="display: none;">
             <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
-              支援將排班、員工名單、代班或加退班 CSV 檔案匯入系統。系統將自動辨識首行欄位。
+              支援將排班、員工名單、業務規則、代班或加退班 CSV 檔案匯入系統。系統將自動辨識首行欄位。
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
@@ -1002,6 +1005,7 @@
                 <select id="csvTargetTable" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px;">
                   <option value="schedules">排班資料庫 (日期, 部門, 姓名, 班別)</option>
                   <option value="employees">員工名單 (部門, 職別, 正式姓名, 綽號簡寫)</option>
+                  <option value="rules">業務規則 (類別, 部門, 職別, 班別名稱, 上下班時間, 備註)</option>
                   <option value="substitutes">代班紀錄 (日期, 部門, 原排班, 代班人員, 時間)</option>
                   <option value="overtimes">加退班紀錄 (日期, 申請人, 遲到/早退, 時數, 原因)</option>
                 </select>
@@ -2076,6 +2080,11 @@
           defaultName = '員工名單_' + ymd + '.csv';
           const list = LocalDB.getEmployees();
           rows = list.map(item => [item.dept || '', item.position || '', item.fullName || '', item.nicknames || '']);
+        } else if (tableType === 'rules') {
+          headers = ['類別', '部門', '職別', '班別名稱', '預設上下班時間', '備註與計算規則'];
+          defaultName = '業務規則_' + ymd + '.csv';
+          const list = LocalDB.getRules();
+          rows = list.map(item => [item[0] || '班別設定', item[1] || '', item[2] || '', item[3] || '', item[4] || '', item[5] || '']);
         } else if (tableType === 'substitutes') {
           headers = ['日期', '部門', '原排班人員', '代班人員', '調整後時間'];
           defaultName = '代班紀錄_' + ymd + '.csv';
@@ -2509,6 +2518,38 @@
               list = parsed;
             }
             LocalDB.saveEmployees(list);
+            importedCount = parsed.length;
+          } else if (targetTable === 'rules') {
+            const catCol = findCol(['類別', 'category'], 0);
+            const deptCol = findCol(['部門', 'dept'], 1);
+            const posCol = findCol(['職別', '職稱', '身分', 'position'], 2);
+            const nameCol = findCol(['班別名稱', '班別', 'shift', 'name'], 3);
+            const timeCol = findCol(['時間', '預設上下班時間', 'time'], 4);
+            const noteCol = findCol(['備註', '規則', 'note'], 5);
+
+            const parsed = rows.map(r => [
+              r[catCol] || '班別設定',
+              r[deptCol] || '',
+              r[posCol] || '',
+              r[nameCol] || '',
+              r[timeCol] || '',
+              r[noteCol] || ''
+            ]).filter(x => x[3]); // 必須有班別名稱
+
+            let list = (mode === 'append') ? LocalDB.getRules() : [];
+            if (mode === 'append') {
+              const existingKeys = new Set(list.map(r => `${r[1]}_${r[2]}_${r[3]}`));
+              parsed.forEach(p => {
+                const k = `${p[1]}_${p[2]}_${p[3]}`;
+                if (!existingKeys.has(k)) {
+                  list.push(p);
+                  existingKeys.add(k);
+                }
+              });
+            } else {
+              list = parsed;
+            }
+            LocalDB.saveRules(list);
             importedCount = parsed.length;
           } else if (targetTable === 'substitutes') {
             const dateCol = findCol(['日期', 'date'], 0);
