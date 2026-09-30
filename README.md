@@ -38,15 +38,52 @@
 
 ---
 
-## 🚀 部署與設定指引 (5 步驟完成)
+---
+
+## 🚀 部署模式選擇
+
+本專案支援兩種不同的部署模式：
+1. **GitHub Pages 純前端單機獨立版 (BYOK)**：零伺服器、零後端依賴，使用個人 Gemini API Key，資料存於本機瀏覽器 LocalStorage，支援 GitHub 靜態託管。
+2. **Google Apps Script 雲端試算表版**：以 Google Sheets 作為中央資料庫，後端 GAS 自動執行。
+
+---
+
+## 🌐 模式一：GitHub Pages 純前端單機獨立版 (BYOK) 部署指南
+
+### 特色亮點
+- **零後端依賴**：完全由純前端 HTML5 / Vanilla CSS / JavaScript 驅動，直接在瀏覽器執行所有 OCR 辨識、班別合併與多維度差勤結算。
+- **BYOK (Bring Your Own Key)**：使用者輸入自己的 Google AI Studio Gemini API Key，直連 Google API。金鑰與差勤資料僅儲存於當前瀏覽器的 `localStorage`，絕不上傳任何第三方伺服器，資料隱私 100% 安全。
+- **內建本地資料庫**：
+  - 預載 A/B 部門正職與計時 PT 班別規則（含最新「假日全班」）。
+  - 支援「👥 員工名單管理」與「📋 業務規則管理」，可即時增修員工、綽號對照與班別時間。
+  - **💾 備份資料**：一鍵將整個差勤資料庫匯出下載為 `Backup_YYYYMMDD_差勤資料庫.json` 檔案。
+  - **📥 匯入備份**：支援隨時拖曳 JSON 備份檔一鍵還原資料庫。
+  - **🗑️ 清除資料**：只清除交易資料（排班、代班、加退班、差勤總表），完整保留員工名單與業務規則。
+
+### GitHub Pages 一鍵部署步驟
+1. 將本分支（`feature/standalone-byok`）推送到您的 GitHub 倉庫：
+   ```bash
+   git push origin feature/standalone-byok
+   ```
+2. 進入該 GitHub 專案的 **Settings**（設定）➔ 左側選單點選 **Pages**。
+3. 在 **Build and deployment** 區塊：
+   - **Source**：選取 `Deploy from a branch`。
+   - **Branch**：選取 `feature/standalone-byok` 分支，資料夾選擇 `/ (root)`。
+   - 點擊 **Save**。
+4. 等候 1~2 分鐘，GitHub 將自動產生靜態網站網址（例如：`https://<username>.github.io/<repo-name>/`）。
+5. 點擊網址即可開始使用純前端單機獨立版！
+
+---
+
+## 📊 模式二：Google Apps Script 雲端試算表版部署指南
 
 ### 步驟 1：建立 Google 試算表
 1. 至 Google 雲端硬碟新增一個空的 Google 試算表（例如命名為：`差勤自動化審核系統資料庫`）。
 2. 點擊頂部選單「**擴充功能**」➔「**Apps Script**」。
 
 ### 步驟 2：貼入程式碼
-1. 將專案左側的 `程式碼.gs` 內容清空，將 [`Code.gs`] 內容完整貼入。
-2. 點擊左側「+」➔「**HTML**」，檔名輸入 `Index`（不需要副檔名），將 [`Index.html`] 內容完整貼入並存檔（Ctrl+S）。
+1. 將專案左側的 `程式碼.gs` 內容清空，將 [`Code.gs`](file:///Code.gs) 內容完整貼入。
+2. 點擊左側「+」➔「**HTML**」，檔名輸入 `Index`（不需要副檔名），將 [`index.html`](file:///index.html) 內容完整貼入並存檔（Ctrl+S）。
 
 ### 步驟 3：設定 Gemini API Key
 可使用以下兩種方式之一設定：
@@ -79,7 +116,7 @@
 
 ---
 
-## ⏰ 設定每日定時備份 (選用)
+## ⏰ 設定每日定時備份 (GAS 模式選用)
 
 1. 在 Apps Script 左側點擊「**觸發條件 (Triggers)**（時鐘圖示）」。
 2. 點擊右下角「**+ 新增觸發條件**」：
@@ -88,3 +125,4 @@
    - 觸發條件類型：`每日計時器`
    - 選取一天的時間：例如 `凌晨 2:00 到 3:00`
 3. 點擊儲存，系統即會在每日凌晨自動複製當前資料庫作為定時備份。
+
