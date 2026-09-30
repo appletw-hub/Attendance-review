@@ -8,7 +8,7 @@
  * 2. 試算表自動結構化建置 (initSpreadsheet)
  * 3. Gemini AI 多模態 OCR 辨識 (手寫排班表、代班申請單、加退班單)
  * 4. 員工名單與綽號簡寫正規化對照 (Mapping Table + 動態 Prompt 注入)
- * 5. 特殊排班合併規則 (同日假早班+假晚班 -> 假全班；早班+晚班 -> 全班)
+ * 5. 特殊排班合併規則 (同日假日早班+假日晚班 -> 假日全班；早班+晚班 -> 全班；去除妝/髮/代班等雜訊)
  * 6. 打卡 CSV 解析與多維度差勤稽核結算 (代班覆蓋、加退班覆蓋、正職計分扣款、PT遲到扣0.5h、忘卡階梯扣假)
  * 7. 系統稽核日誌 (Audit Trail) 與自動定時備份 (Scheduled Backup)
  */
@@ -124,13 +124,17 @@ function initSpreadsheet() {
         ['班別設定', 'A部門', '正職', '早班', '06:00 - 14:00', '正職常態班'],
         ['班別設定', 'A部門', '正職', '中班', '12:00 - 20:00', '正職常態班'],
         ['班別設定', 'A部門', '正職', '晚班', '14:30 - 22:30', '正職常態班'],
-        ['班別設定', 'A部門', '正職', '假早班', '05:00 - 14:00', '假日值班，不計入加班費'],
-        ['班別設定', 'A部門', '正職', '假晚班', '14:00 - 23:00', '假日值班，不計入加班費'],
-        ['班別設定', 'A部門', '正職', '假全班', '05:00 - 23:00', '假日值班，同天排假早+假晚自動合併'],
+        ['班別設定', 'A部門', '正職', '假日早班', '05:00 - 14:00', '假日值班，不計入加班費'],
+        ['班別設定', 'A部門', '正職', '假日晚班', '14:00 - 23:00', '假日值班，不計入加班費'],
+        ['班別設定', 'A部門', '正職', '假日全班', '05:00 - 23:00', '假日值班，同天排假日早+假日晚自動合併'],
+        ['班別設定', 'A部門', '正職', '假早班', '05:00 - 14:00', '假日早班別名'],
+        ['班別設定', 'A部門', '正職', '假晚班', '14:00 - 23:00', '假日晚班別名'],
+        ['班別設定', 'A部門', '正職', '假全班', '05:00 - 23:00', '假日全班別名'],
         ['班別設定', 'B部門', '正職', '早班', '08:30 - 17:30', '平日班'],
         ['班別設定', 'B部門', '正職', '晚班', '11:30 - 20:30', '平日班'],
         ['班別設定', 'B部門', '正職', '假日早班', '08:30 - 17:30', '假日班'],
         ['班別設定', 'B部門', '正職', '假日晚班', '14:00 - 23:00', '假日班'],
+        ['班別設定', 'B部門', '正職', '假日全班', '08:30 - 23:00', '同天排假日早+假日晚自動合併'],
         ['班別設定', 'B部門', '計時 PT', '早班', '07:00 - 14:00', '遲到扣 0.5 小時時薪'],
         ['班別設定', 'B部門', '計時 PT', '晚班', '14:00 - 20:00', '遲到扣 0.5 小時時薪'],
         ['班別設定', 'B部門', '計時 PT', '全班', '07:00 - 20:00', '遲到扣 0.5 小時時薪'],
@@ -220,6 +224,42 @@ function initSpreadsheet() {
   }
 }
 
+/**
+ * 清除動態資料 (只刪除：排班資料庫、代班紀錄、加退班紀錄、差勤結算總表之資料列)
+ * 保留第一行標題列，保留業務規則設定與員工名單
+ */
+function clearTransactionData() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const targetSheetNames = ['排班資料庫', '代班紀錄', '代班記錄', '加退班紀錄', '加退班記錄', '差勤結算總表'];
+    let clearedCount = 0;
+    const clearedSheets = [];
+
+    targetSheetNames.forEach(sheetName => {
+      const sheet = ss.getSheetByName(sheetName);
+      if (sheet) {
+        const lastRow = sheet.getLastRow();
+        if (lastRow > 1) {
+          sheet.deleteRows(2, lastRow - 1);
+          clearedCount += (lastRow - 1);
+        }
+        if (!clearedSheets.includes(sheetName)) {
+          clearedSheets.push(sheetName);
+        }
+      }
+    });
+
+    writeAuditLog('清除資料', `成功清除 ${clearedSheets.join('、')} 共 ${clearedCount} 筆資料`, 'SUCCESS');
+    return JSON.stringify({
+      status: 'success',
+      message: `已清除排班資料庫、代班紀錄、加退班紀錄與差勤結算總表資料（共清除 ${clearedCount} 筆，標題列與員工名單規則完整保留）！`
+    });
+  } catch (e) {
+    writeAuditLog('清除資料', `清除失敗：${e.toString()}`, 'ERROR');
+    return JSON.stringify({ status: 'error', message: '清除資料失敗：' + e.toString() });
+  }
+}
+
 // ==========================================
 // 4. 稽核日誌與自動備份模組
 // ==========================================
@@ -236,6 +276,36 @@ function writeAuditLog(action, detail, status = 'SUCCESS') {
     logSheet.appendRow([new Date(), user, action, detail, status]);
   } catch (err) {
     console.error("寫入日誌失敗：" + err.toString());
+  }
+}
+
+/**
+ * 即時備份當前試算表至指定雲端硬碟資料庫位置
+ * 雲端資料庫：https://drive.google.com/drive/folders/1uorJ3Ii5u97IF7S2b4m6o5FGMjfFPqLy
+ */
+function backupSpreadsheetNow() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const folderId = '1uorJ3Ii5u97IF7S2b4m6o5FGMjfFPqLy';
+    const timeStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Taipei', 'yyyyMMdd_HHmmss');
+    const backupName = `Backup_${timeStr}_${ss.getName()}`;
+
+    const currentFile = DriveApp.getFileById(ss.getId());
+    const targetFolder = DriveApp.getFolderById(folderId);
+
+    currentFile.makeCopy(backupName, targetFolder);
+    writeAuditLog('即時備份', `成功備份至雲端資料庫：${backupName}`, 'SUCCESS');
+
+    return JSON.stringify({
+      status: 'success',
+      message: `備份成功！已即時備份「${backupName}」至指定雲端資料庫。`
+    });
+  } catch (e) {
+    writeAuditLog('即時備份', `備份失敗：${e.toString()}`, 'ERROR');
+    return JSON.stringify({
+      status: 'error',
+      message: '備份失敗：' + e.toString()
+    });
   }
 }
 
@@ -378,6 +448,21 @@ function getShiftRulesMap() {
           rulesMap[`${dept}_${shiftName}`] = startTime;
         }
         rulesMap[shiftName] = startTime;
+
+        // 假日班別雙向相容映射 (假早班 <-> 假日早班, 假晚班 <-> 假日晚班, 假全班 <-> 假日全班)
+        const aliases = [];
+        if (shiftName === '假全班') aliases.push('假日全班');
+        if (shiftName === '假日全班') aliases.push('假全班');
+        if (shiftName === '假早班') aliases.push('假日早班');
+        if (shiftName === '假日早班') aliases.push('假早班');
+        if (shiftName === '假晚班') aliases.push('假日晚班');
+        if (shiftName === '假日晚班') aliases.push('假晚班');
+
+        aliases.forEach(alias => {
+          if (dept && position) rulesMap[`${dept}_${position}_${alias}`] = startTime;
+          if (dept) rulesMap[`${dept}_${alias}`] = startTime;
+          if (!rulesMap[alias]) rulesMap[alias] = startTime;
+        });
       }
     }
   }
@@ -419,7 +504,7 @@ function getScheduleMap(targetYear, targetMonth) {
 
     const day = extractDay(dateCell, targetYear, targetMonth);
     if (day !== null) {
-      schedMap[`${day}_${name}`] = shift;
+      schedMap[`${day}_${name}`] = mergeShiftList([shift]);
     }
   }
 
@@ -583,11 +668,14 @@ ${dynamicMappingPrompt}
 3. 特別注意：手寫排班表常使用員工綽號簡寫，請嚴格參照以下【員工簡寫對照表】自動替換為正式姓名：
 ${dynamicMappingPrompt}
 若不在對照表內的新人名字，請保留照片上的原樣文字。
+4. 【關鍵班別格式規則】：
+   - 班別文字請去除「妝」、「髮」、「代班」等職別或註記雜訊。例如：「假日早班髮」請擷取為「假日早班」；「假日晚班代班妝」請擷取為「假日晚班」；「早班妝」請擷取為「早班」。
+   - 請輸出標準乾淨的班別名稱。
 
 請嚴格輸出為標準 JSON Array 格式，每個物件包含以下欄位：
 - "date": 日期 (數字 1 到 31)
 - "name": 員工姓名 (正規化後的全名或原樣)
-- "shift": 班別名稱 (字串，例如 "晨班"、"早班"、"中班"、"晚班"、"假早班"、"假晚班"、"假全班"、"節目 1 班" 等)
+- "shift": 班別名稱 (字串，例如 "晨班"、"早班"、"中班"、"晚班"、"假日早班"、"假日晚班"、"假日全班"、"全班"、"節目 1 班" 等)
 `;
   }
 
@@ -649,6 +737,91 @@ ${dynamicMappingPrompt}
 // ==========================================
 
 /**
+ * 清理單一班別字串：去除「髮」、「妝」、「代班」等雜訊標記
+ * 例如：
+ * - 假日早班髮 -> 假日早班
+ * - 假日早班妝 -> 假日早班
+ * - 假日晚班代班妝 -> 假日晚班
+ * - 假日晚班代班髮 -> 假日晚班
+ */
+function cleanSingleShift(shiftStr) {
+  if (!shiftStr) return '';
+  let s = shiftStr.toString().trim();
+  if (!s) return '';
+
+  // 1. 去除括號註記如 (代班)、（髮）、(妝) 等
+  s = s.replace(/[\(（][^\)）]*[\)）]/g, '').trim();
+
+  // 2. 去除代班、代班妝、代班髮、妝、髮等標記
+  s = s.replace(/代班[妝髮]?/g, '');
+  s = s.replace(/[妝髮]$/g, '');
+  s = s.replace(/[妝髮]/g, '');
+  s = s.replace(/代班/g, '');
+  s = s.trim();
+
+  // 3. 標準化名稱對映
+  if (s === '假早' || s === '假早班') {
+    s = '假日早班';
+  } else if (s === '假晚' || s === '假晚班') {
+    s = '假日晚班';
+  } else if (s === '假全' || s === '假全班') {
+    s = '假日全班';
+  }
+
+  return s;
+}
+
+/**
+ * 核心班別清理與合併演算法：
+ * 1. 把「圖一」格式（含 髮、妝、代班）正規化為「圖二」乾淨格式（多班別以「、」連接）
+ * 2. 若同人同日同時有 (假日早班、假日晚班)，直接改為【假日全班】
+ * 3. 若同日有 (早班、晚班)，合併為【全班】
+ */
+function mergeShiftList(shiftArray) {
+  if (!shiftArray || !Array.isArray(shiftArray)) return '';
+
+  const cleanTokens = [];
+  shiftArray.forEach(item => {
+    if (!item) return;
+    const parts = item.toString().split(/[、,\/\s]+/);
+    parts.forEach(p => {
+      const cleaned = cleanSingleShift(p);
+      if (cleaned && !cleanTokens.includes(cleaned)) {
+        cleanTokens.push(cleaned);
+      }
+    });
+  });
+
+  if (cleanTokens.length === 0) return '';
+
+  // 規則 2: 同日同時有 (假日早班、假日晚班)，直接改為【假日全班】
+  const hasHolidayMorning = cleanTokens.includes('假日早班');
+  const hasHolidayEvening = cleanTokens.includes('假日晚班');
+
+  if (hasHolidayMorning && hasHolidayEvening) {
+    const remaining = cleanTokens.filter(t => t !== '假日早班' && t !== '假日晚班');
+    if (!remaining.includes('假日全班')) {
+      remaining.unshift('假日全班');
+    }
+    return remaining.join('、');
+  }
+
+  // 規則：同日有 (早班、晚班)，合併為【全班】
+  const hasMorning = cleanTokens.includes('早班');
+  const hasEvening = cleanTokens.includes('晚班');
+  if (hasMorning && hasEvening) {
+    const remaining = cleanTokens.filter(t => t !== '早班' && t !== '晚班');
+    if (!remaining.includes('全班')) {
+      remaining.unshift('全班');
+    }
+    return remaining.join('、');
+  }
+
+  // 規則 1: 圖二乾淨顯示方式
+  return cleanTokens.join('、');
+}
+
+/**
  * 儲存手寫排班表資料 (包含特殊合併邏輯與正規化)
  */
 function saveScheduleData(scheduleArray, targetYear, targetMonth) {
@@ -680,29 +853,32 @@ function saveScheduleData(scheduleArray, targetYear, targetMonth) {
         };
       });
 
-    // 2. 關鍵規則：同人同日「早晚班合併」邏輯
-    //    - 假早班 + 假晚班 -> 合併為「假全班」
+    // 2. 關鍵規則：同人同日班別清理與合併
+    //    - 去除「髮/妝/代班」等標記（圖一 ➔ 圖二）
+    //    - 若同時有 (假日早班、假日晚班)，改為「假日全班」
     //    - 早班 + 晚班 -> 合併為「全班」
-    const shiftMap = {};
+    const shiftGroupMap = {};
     validData.forEach(item => {
       const key = `${item.date}_${item.name}`;
-      if (!shiftMap[key]) {
-        shiftMap[key] = { ...item };
-      } else {
-        const existing = shiftMap[key].shift;
-        const current = item.shift;
-
-        if ((existing === '假早班' && current === '假晚班') || (existing === '假晚班' && current === '假早班')) {
-          shiftMap[key].shift = '假全班';
-        } else if ((existing === '早班' && current === '晚班') || (existing === '晚班' && current === '早班')) {
-          shiftMap[key].shift = '全班';
-        } else if (existing !== current && current) {
-          shiftMap[key].shift = existing + "、" + current;
-        }
+      if (!shiftGroupMap[key]) {
+        shiftGroupMap[key] = {
+          date: item.date,
+          name: item.name,
+          shifts: []
+        };
+      }
+      if (item.shift) {
+        shiftGroupMap[key].shifts.push(item.shift);
       }
     });
 
-    const finalCleanData = Object.values(shiftMap);
+    const finalCleanData = Object.values(shiftGroupMap).map(group => {
+      return {
+        date: group.date,
+        name: group.name,
+        shift: mergeShiftList(group.shifts)
+      };
+    });
 
     // 3. 組裝寫入行
     const rowsToInsert = finalCleanData.map(item => {
@@ -722,10 +898,50 @@ function saveScheduleData(scheduleArray, targetYear, targetMonth) {
     writeAuditLog('匯入排班資料', `成功寫入 ${rowsToInsert.length} 筆排班資料 (${targetYear}/${targetMonth})`, 'SUCCESS');
     return JSON.stringify({
       status: 'success',
-      message: `成功將 ${rowsToInsert.length} 筆排班寫入資料庫（已對照正式全名並落實班別合併）！`
+      message: `成功將 ${rowsToInsert.length} 筆排班寫入資料庫（已對照正式全名、去除妝/髮/代班雜訊，並合併假日全班）！`
     });
   } catch (e) {
     return JSON.stringify({ status: 'error', message: '寫入排班資料庫失敗：' + e.toString() });
+  }
+}
+
+/**
+ * 一鍵整理「排班資料庫」中的歷史紀錄班別：
+ * 1. 將圖一格式（含 髮、妝、代班）轉換為圖二乾淨格式
+ * 2. 若同人同日包含 (假日早班、假日晚班)，直接轉換為【假日全班】
+ */
+function normalizeExistingScheduleSheet() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('排班資料庫');
+    if (!sheet) return JSON.stringify({ status: 'error', message: '找不到「排班資料庫」工作表' });
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return JSON.stringify({ status: 'success', message: '排班資料庫目前無資料需整理' });
+
+    let updatedCount = 0;
+    for (let i = 1; i < data.length; i++) {
+      const rawShift = data[i][2] ? data[i][2].toString().trim() : '';
+      if (rawShift) {
+        const cleanedShift = mergeShiftList([rawShift]);
+        if (cleanedShift !== rawShift) {
+          data[i][2] = cleanedShift;
+          updatedCount++;
+        }
+      }
+    }
+
+    if (updatedCount > 0) {
+      sheet.getDataRange().setValues(data);
+    }
+
+    writeAuditLog('歷史班別整理', `成功整理 ${updatedCount} 筆排班紀錄（去除妝髮代班雜訊、假日早晚班改為假日全班）`, 'SUCCESS');
+    return JSON.stringify({
+      status: 'success',
+      message: `成功整理 ${updatedCount} 筆歷史排班班別！已去除妝/髮/代班標記，並將 (假日早班、假日晚班) 自動更新為【假日全班】。`
+    });
+  } catch (e) {
+    return JSON.stringify({ status: 'error', message: '整理排班資料庫失敗：' + e.toString() });
   }
 }
 
@@ -970,14 +1186,21 @@ function calculateAttendance(dailyRecords, scheduleMap, substituteMap, overtimeM
 
     let shiftStart = null;
     if (empShift) {
-      if (empDept && empInfo.position) {
-        shiftStart = rulesMap[`${empDept}_${empInfo.position}_${empShift}`];
-      }
-      if (!shiftStart && empDept) {
-        shiftStart = rulesMap[`${empDept}_${empShift}`];
-      }
-      if (!shiftStart) {
-        shiftStart = rulesMap[empShift];
+      // 支援複合班別 (例如 晨班、中班)，優先以整串比對，若無則比對第一個班別
+      const primaryShift = empShift.split('、')[0].trim();
+      const shiftsToTry = empShift === primaryShift ? [empShift] : [empShift, primaryShift];
+
+      for (const s of shiftsToTry) {
+        if (empDept && empInfo.position) {
+          shiftStart = rulesMap[`${empDept}_${empInfo.position}_${s}`];
+        }
+        if (!shiftStart && empDept) {
+          shiftStart = rulesMap[`${empDept}_${s}`];
+        }
+        if (!shiftStart) {
+          shiftStart = rulesMap[s];
+        }
+        if (shiftStart) break;
       }
     }
 

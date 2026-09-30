@@ -496,6 +496,54 @@
         cursor: pointer;
         color: var(--text-muted);
       }
+
+      /* 自訂確認 / 提示對話框樣式 (取代瀏覽器原生彈窗，去除網址抬頭文字) */
+      .confirm-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(3px);
+        z-index: 2000;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 12vh;
+      }
+      .confirm-modal.active {
+        display: flex;
+        animation: modalFadeIn 0.16s ease-out;
+      }
+      @keyframes modalFadeIn {
+        from { opacity: 0; transform: translateY(-12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .confirm-dialog {
+        background: #ffffff;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 480px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        border: 1px solid #E2E8F0;
+      }
+      .confirm-body {
+        padding: 24px 24px 20px 24px;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #1E293B;
+        white-space: pre-line;
+      }
+      .confirm-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding: 14px 20px;
+        background: #F8FAFC;
+        border-top: 1px solid #E2E8F0;
+      }
     </style>
   </head>
   <body>
@@ -524,8 +572,14 @@
           <button class="btn btn-outline" onclick="openRulesModal()">
             📖 業務規則
           </button>
-          <button class="btn btn-outline" onclick="runInitSpreadsheet()">
-            ⚙️ 資料庫初始化
+          <button class="btn btn-outline" onclick="runNormalizeExistingSchedules()">
+            🔄 整理歷史班別
+          </button>
+          <button class="btn btn-outline" onclick="runBackupData()">
+            💾 備份資料
+          </button>
+          <button class="btn btn-outline" style="color: #b91c1c; border-color: #fca5a5;" onclick="runClearData()">
+            🗑️ 清除資料
           </button>
         </div>
       </header>
@@ -574,7 +628,7 @@
             <h3>手寫排班表 AI 辨識</h3>
           </div>
           <p class="card-desc">
-            支援單張或多張手寫班表照片。系統自動垂直無縫拼接圖像，透過 Gemini AI 自動比對員工綽號簡寫，並將同日早晚班自動合併（假早+假晚➔假全班）。
+            支援單張或多張手寫班表照片。系統自動無縫拼接圖像，透過 Gemini AI 自動比對員工綽號簡寫，去除「妝/髮/代班」等雜訊，並將同日 (假日早班+假日晚班) 自動改為【假日全班】。
           </p>
 
           <div class="upload-dropzone">
@@ -694,6 +748,17 @@
           </div>
         </div>
       </div>
+
+      <!-- 自訂確認/提示對話框 (無瀏覽器網址抬頭文字) -->
+      <div id="customConfirmModal" class="confirm-modal">
+        <div class="confirm-dialog">
+          <div class="confirm-body" id="customConfirmMessage"></div>
+          <div class="confirm-footer">
+            <button class="btn btn-outline" id="customConfirmCancelBtn" style="padding: 8px 18px;">取消</button>
+            <button class="btn btn-primary" id="customConfirmOkBtn" style="padding: 8px 22px;">確定</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- JavaScript 邏輯與本機預覽相容橋接層 -->
@@ -724,11 +789,14 @@
                           ['班別設定', 'A部門', '正職', '早班', '06:00 - 14:00', '正職常態班'],
                           ['班別設定', 'A部門', '正職', '中班', '12:00 - 20:00', '正職常態班'],
                           ['班別設定', 'A部門', '正職', '晚班', '14:30 - 22:30', '正職常態班'],
-                          ['班別設定', 'A部門', '正職', '假早班', '05:00 - 14:00', '假日值班，不計入加班費'],
-                          ['班別設定', 'A部門', '正職', '假晚班', '14:00 - 23:00', '假日值班，不計入加班費'],
-                          ['班別設定', 'A部門', '正職', '假全班', '05:00 - 23:00', '同天排假早+假晚自動合併'],
+                          ['班別設定', 'A部門', '正職', '假日早班', '05:00 - 14:00', '假日值班，不計入加班費'],
+                          ['班別設定', 'A部門', '正職', '假日晚班', '14:00 - 23:00', '假日值班，不計入加班費'],
+                          ['班別設定', 'A部門', '正職', '假日全班', '05:00 - 23:00', '同天排假日早+假日晚自動合併'],
                           ['班別設定', 'B部門', '正職', '早班', '08:30 - 17:30', '平日班'],
                           ['班別設定', 'B部門', '正職', '晚班', '11:30 - 20:30', '平日班'],
+                          ['班別設定', 'B部門', '正職', '假日早班', '08:30 - 17:30', '假日班'],
+                          ['班別設定', 'B部門', '正職', '假日晚班', '14:00 - 23:00', '假日班'],
+                          ['班別設定', 'B部門', '正職', '假日全班', '08:30 - 23:00', '同天排假日早+假日晚自動合併'],
                           ['班別設定', 'B部門', '計時 PT', '早班', '07:00 - 14:00', '遲到直接扣 0.5 小時時薪'],
                           ['班別設定', 'B部門', '計時 PT', '晚班', '14:00 - 20:00', '遲到直接扣 0.5 小時時薪'],
                           ['班別設定', 'B部門', '計時 PT', '全班', '07:00 - 20:00', '遲到直接扣 0.5 小時時薪']
@@ -744,6 +812,33 @@
                         message: '【預覽模式】模擬初始化：已建立業務規則、員工名單、排班資料庫等 8 張工作表！'
                       }));
                     }, 400);
+                    return runner;
+                  },
+                  clearTransactionData: function() {
+                    setTimeout(() => {
+                      onSuccess(JSON.stringify({
+                        status: 'success',
+                        message: '【預覽模式】已清除排班資料庫、代班紀錄、加退班紀錄與差勤結算總表之所有資料！'
+                      }));
+                    }, 300);
+                    return runner;
+                  },
+                  backupSpreadsheetNow: function() {
+                    setTimeout(() => {
+                      onSuccess(JSON.stringify({
+                        status: 'success',
+                        message: '【預覽模式】備份成功！已複製備份檔至雲端資料庫：https://drive.google.com/drive/folders/1uorJ3Ii5u97IF7S2b4m6o5FGMjfFPqLy'
+                      }));
+                    }, 400);
+                    return runner;
+                  },
+                  normalizeExistingScheduleSheet: function() {
+                    setTimeout(() => {
+                      onSuccess(JSON.stringify({
+                        status: 'success',
+                        message: '【預覽模式】已模擬整理排班資料庫：去除妝/髮/代班雜訊，並將同日早晚班自動改為「假日全班」！'
+                      }));
+                    }, 300);
                     return runner;
                   },
                   processUploadedImage: function() {
@@ -920,7 +1015,7 @@
       function getSelectedYearMonth() {
         const val = document.getElementById('targetMonth').value;
         if (!val) {
-          alert('⚠️ 請先在上方選定結算年月！');
+          showCustomAlert('⚠️ 請先在上方選定結算年月！');
           return null;
         }
         const parts = val.split('-');
@@ -1184,21 +1279,117 @@
         document.getElementById('rulesModal').style.display = 'none';
       }
 
-      function runInitSpreadsheet() {
-        if (!confirm("確定要在當前試算表建立或補齊所有差勤工作表結構（業務規則、員工名單、排班資料庫、代班、加退班、差勤結算總表、日誌）嗎？")) {
-          return;
-        }
-        showStatus("⏳ 正在建置試算表資料結構...", "info");
+      /**
+       * 自訂確認對話框 (解決瀏覽器原生 confirm 附帶的 script.googleusercontent.com 抬頭)
+       */
+      function showCustomConfirm(message) {
+        return new Promise((resolve) => {
+          const modal = document.getElementById('customConfirmModal');
+          const msgEl = document.getElementById('customConfirmMessage');
+          const okBtn = document.getElementById('customConfirmOkBtn');
+          const cancelBtn = document.getElementById('customConfirmCancelBtn');
+
+          msgEl.innerText = message;
+          cancelBtn.style.display = 'inline-block';
+          modal.classList.add('active');
+
+          const cleanup = (res) => {
+            modal.classList.remove('active');
+            okBtn.onclick = null;
+            cancelBtn.onclick = null;
+            resolve(res);
+          };
+
+          okBtn.onclick = () => cleanup(true);
+          cancelBtn.onclick = () => cleanup(false);
+        });
+      }
+
+      /**
+       * 自訂提示對話框 (解決瀏覽器原生 alert 附帶的 script.googleusercontent.com 抬頭)
+       */
+      function showCustomAlert(message) {
+        return new Promise((resolve) => {
+          const modal = document.getElementById('customConfirmModal');
+          const msgEl = document.getElementById('customConfirmMessage');
+          const okBtn = document.getElementById('customConfirmOkBtn');
+          const cancelBtn = document.getElementById('customConfirmCancelBtn');
+
+          msgEl.innerText = message;
+          cancelBtn.style.display = 'none';
+          modal.classList.add('active');
+
+          const cleanup = () => {
+            modal.classList.remove('active');
+            cancelBtn.style.display = 'inline-block';
+            okBtn.onclick = null;
+            resolve(true);
+          };
+
+          okBtn.onclick = cleanup;
+        });
+      }
+
+      // 替換全域 alert 為自訂無抬頭提示框
+      window.alert = showCustomAlert;
+
+      async function runNormalizeExistingSchedules() {
+        const confirmed = await showCustomConfirm("確定要將「排班資料庫」中的歷史班別進行標準化整理嗎？\n\n- 去除妝、髮、代班等雜訊（圖一➔圖二）\n- 同日同時有「假日早班、假日晚班」將自動改為「假日全班」");
+        if (!confirmed) return;
+
+        showStatus("⏳ 正在整理「排班資料庫」中的班別格式...", "info");
         google.script.run
           .withSuccessHandler(function(resStr) {
             const res = JSON.parse(resStr);
             if (res.status === 'success') {
               showStatus(`✅ ${res.message}`, "success");
             } else {
-              showStatus(`❌ ${res.message}`, "error");
+              showStatus(`❌ 整理失敗：${res.message}`, "error");
             }
           })
-          .initSpreadsheet();
+          .withFailureHandler(function(err) {
+            showStatus(`❌ 通訊錯誤：${err.message}`, "error");
+          })
+          .normalizeExistingScheduleSheet();
+      }
+
+      async function runClearData() {
+        const confirmed = await showCustomConfirm("⚠️ 警告：確定要執行【清除資料】嗎？\n\n將只刪除以下工作表的資料內容（標題列與結構保留）：\n- 排班資料庫\n- 代班紀錄\n- 加退班紀錄\n- 差勤結算總表\n\n（※ 業務規則設定 與 員工名單 將被完整保留不變）");
+        if (!confirmed) return;
+
+        showStatus("⏳ 正在清除排班、代班、加退班與差勤結算總表之資料...", "info");
+        google.script.run
+          .withSuccessHandler(function(resStr) {
+            const res = JSON.parse(resStr);
+            if (res.status === 'success') {
+              showStatus(`✅ ${res.message}`, "success");
+              document.getElementById('resultContainer').style.display = 'none';
+              document.getElementById('resultBody').innerHTML = '';
+            } else {
+              showStatus(`❌ 清除失敗：${res.message}`, "error");
+            }
+          })
+          .withFailureHandler(function(err) {
+            showStatus(`❌ 通訊錯誤：${err.message}`, "error");
+          })
+          .clearTransactionData();
+      }
+
+      function runBackupData() {
+        showStatus("⏳ 正在即時備份當前試算表至指定雲端資料庫...", "info");
+        google.script.run
+          .withSuccessHandler(function(resStr) {
+            const res = JSON.parse(resStr);
+            if (res.status === 'success') {
+              showStatus(`✅ ${res.message}`, "success");
+            } else {
+              showStatus(`❌ 備份失敗：${res.message}`, "error");
+            }
+          })
+          .withFailureHandler(function(err) {
+            showStatus(`❌ 通訊錯誤：${err.message}`, "error");
+          })
+          .backupSpreadsheetNow();
       }
     </script>
   </body>
